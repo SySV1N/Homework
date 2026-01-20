@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Мое Облако</title>
+    <style>
+        :root {
+            --bg: #0f1115;
+            --card: #161a22;
+            --accent: #4f8cff;
+            --text: #e6e8eb;
+            --muted: #9aa0a6;
+            --border: #262b36;
+            --success: #3ddc97;
+            --error: #ff5c5c;
+        }
+
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: radial-gradient(1200px 600px at 50% -10%, #1b2130, var(--bg));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 50px;
+            color: var(--text);
+            gap: 20px;
+        }
+
+        .upload-card, .files-card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        h1, h2 { margin: 0 0 8px; text-align: center; font-size: 22px; }
+        p { margin: 0 0 24px; text-align: center; color: var(--muted); font-size: 14px; }
+
+        .file-input { position: relative; margin-bottom: 20px; }
+        .file-input input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .file-label { display: flex; align-items: center; justify-content: center; gap: 10px; height: 56px; border: 2px dashed var(--border); border-radius: 12px; color: var(--muted); transition: 0.2s; }
+        .file-input:hover .file-label { border-color: var(--accent); color: var(--text); background: rgba(79, 140, 255, 0.05); }
+        .file-name { margin-bottom: 16px; font-size: 13px; color: var(--muted); text-align: center; word-break: break-all; }
+        
+        /* Кнопка загрузки */
+        .btn-upload { width: 100%; height: 52px; border-radius: 12px; border: none; background: linear-gradient(135deg, var(--accent), #6aa2ff); color: white; font-size: 15px; font-weight: 600; cursor: pointer; }
+        .btn-upload:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* Сообщения */
+        .message { margin-top: 16px; padding: 12px; border-radius: 10px; text-align: center; font-size: 14px; display: none; }
+        .message.success { background: rgba(61, 220, 151, 0.15); color: var(--success); }
+        .message.error { background: rgba(255, 92, 92, 0.15); color: var(--error); }
+
+        /* Список файлов */
+        .file-list { list-style: none; padding: 0; margin: 0; }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            transition: 0.2s;
+        }
+        .file-item:last-child { border-bottom: none; }
+        .file-item:hover { background: rgba(255, 255, 255, 0.03); }
+
+        .file-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 260px; /* Чуть меньше, чтобы влезла кнопка */
+        }
+        .file-link:hover { text-decoration: underline; }
+        
+        .file-left { display: flex; align-items: center; gap: 10px; }
+
+        /* НОВЫЙ СТИЛЬ ДЛЯ КНОПКИ УДАЛЕНИЯ */
+        .btn-delete {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: 0.2s;
+            opacity: 0.7;
+        }
+        .btn-delete:hover {
+            opacity: 1;
+            background: rgba(255, 92, 92, 0.15);
+        }
+    </style>
+</head>
+<body>
+
+<form class="upload-card" id="uploadForm">
+    <h1>Загрузить файл</h1>
+    <p>Выберите файл для загрузки в Облако</p>
+
+    <div class="file-input">
+        <label class="file-label">
+            📁 Выбрать файл
+            <input type="file" name="file" required>
+        </label>
+    </div>
+
+    <div class="file-name" id="fileName">Файл не выбран</div>
+
+    <button type="submit" class="btn-upload" id="uploadBtn">Загрузить</button>
+
+    <div class="message success" id="successMessage">✅ Файл успешно загружен</div>
+    <div class="message error" id="errorMessage">❌ Ошибка загрузки</div>
+</form>
+
+<div class="files-card">
+    <h2>Ваши файлы</h2>
+    <p id="filesCount">Загрузка списка...</p>
+    <ul class="file-list" id="fileList"></ul>
+</div>
+
+<script>
+    const form = document.getElementById('uploadForm');
+    const fileInput = form.querySelector('input[type="file"]');
+    const fileName = document.getElementById('fileName');
+    const successMessage = document.getElementById('successMessage');
+    const errorMessage = document.getElementById('errorMessage');
+    const uploadBtn = document.getElementById('uploadBtn');
+    
+    const fileListEl = document.getElementById('fileList');
+    const filesCountEl = document.getElementById('filesCount');
+
+    // Обновление имени файла
+    fileInput.addEventListener('change', () => {
+        fileName.textContent = fileInput.files.length ? fileInput.files[0].name : 'Файл не выбран';
+    });
+
+    // --- ФУНКЦИЯ УДАЛЕНИЯ ---
+    async function deleteFile(name) {
+        if (!confirm(`Вы точно хотите удалить файл "${name}"?`)) return;
+
+        try {
+            const res = await fetch(`/api/files/${name}`, { method: 'DELETE' });
+            if (res.ok) {
+                loadFiles(); // Обновляем список после удаления
+            } else {
+                alert('Ошибка при удалении');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Не удалось связаться с сервером');
+        }
+    }
+
+    // --- ФУНКЦИЯ ЗАГРУЗКИ СПИСКА ---
+    async function loadFiles() {
+        try {
+            const res = await fetch('/api/files');
+            const files = await res.json();
+
+            fileListEl.innerHTML = '';
+            filesCountEl.textContent = `Всего файлов: ${files.length}`;
+
+            if (files.length === 0) {
+                fileListEl.innerHTML = '<li style="text-align:center; padding:10px; color:var(--muted)">Папка пуста</li>';
+                return;
+            }
+
+            for (const file of files) {
+              const li = document.createElement('li');
+                li.className = 'file-item';
+                
+                // Вставляем кнопку удаления (onclick вызывает deleteFile)
+                li.innerHTML = `
+                    <div class="file-left">
+                        <span>📄</span>
+                        <a href="/uploads/${file}" class="file-link" target="_blank">${file}</a>
+                    </div>
+                    <button class="btn-delete" onclick="deleteFile('${file}')" title="Удалить">🗑️</button>
+                `;
+                
+                fileListEl.appendChild(li);  
+            }
+        } catch (err) {
+            console.error(err);
+            filesCountEl.textContent = 'Ошибка загрузки списка';
+        }
+    }
+
+    // --- ОТПРАВКА ФОРМЫ ---
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        successMessage.style.display = 'none';
+        errorMessage.style.display = 'none';
+
+        const formData = new FormData(form);
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = 'Загрузка...';
+
+        try {
+            const response = await fetch('/upload', { method: 'POST', body: formData });
+
+            if (response.ok) {
+                successMessage.style.display = 'block';
+                form.reset();
+                fileName.textContent = 'Файл не выбран';
+                loadFiles(); // Обновляем список
+            } else {
+                throw new Error('Upload failed');
+            }
+        } catch (err) {
+            errorMessage.style.display = 'block';
+        } finally {
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Загрузить';
+        }
+    });
+
+    loadFiles();
+</script>
+</body>
+</html>
