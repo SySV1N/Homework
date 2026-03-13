@@ -93,3 +93,26 @@ newsAgency.subscribe(websiteSubscriber);
 newsAgency.publishNews(`Подписали обоих`); //Опубликовали новость
 newsAgency.unsubscribe(telegramBotSubscriber); //Отписали телегу
 newsAgency.publishNews(`Отписали телегу`); //Опубликовали новость уже без телеги:(
+//Реализация паттерна Observer через тулсы, которые для нас заботливо написали другие прогеры
+const events_1 = require("events");
+const eventBus = new events_1.EventEmitter();
+eventBus.on('TelegramBot', (headLine) => {
+    console.log(`Рассылка в ТГ: ${headLine}`);
+});
+eventBus.on('Website', (headLine) => {
+    console.log(`Обновление на сайте: ${headLine}`);
+});
+class NewsAgencyEmitter {
+    tgPost(headLine) {
+        eventBus.emit('TelegramBot', headLine);
+    }
+    ;
+    wsPost(headLine) {
+        eventBus.emit('Website', headLine);
+    }
+    ;
+}
+;
+const newsAgencyEmitter = new NewsAgencyEmitter();
+newsAgencyEmitter.tgPost(`Телега`);
+newsAgencyEmitter.wsPost(`Сайт`);

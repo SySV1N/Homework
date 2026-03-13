@@ -111,5 +111,32 @@ newsAgency.publishNews(`Отписали телегу`); //Опубликова�
 
 import {EventEmitter} from "events";
 
+const eventBus = new EventEmitter();
+
+eventBus.on('TelegramBot', (headLine:string): void => {
+    console.log(`Рассылка в ТГ: ${headLine}`)
+});
+
+eventBus.on('Website', (headLine:string): void => {
+    console.log(`Обновление на сайте: ${headLine}`)
+});
+
+class NewsAgencyEmitter {
+
+
+    public tgPost(headLine: string): void {
+        eventBus.emit('TelegramBot', headLine)
+    };
+    public wsPost(headLine: string): void {
+        eventBus.emit('Website', headLine)
+    };
+
+};
+
+const newsAgencyEmitter = new NewsAgencyEmitter();
+
+newsAgencyEmitter.tgPost(`Телега`)
+newsAgencyEmitter.wsPost(`Сайт`)
+
 
 
